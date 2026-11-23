@@ -1946,7 +1946,7 @@ EOF
 # 脚本快捷方式
 aliasInstall() {
 
-    if [[ -f "$HOME/install.sh" ]] && [[ -d "/etc/v2ray-agent" ]] && grep <"$HOME/install.sh" -q "作者:mack-a"; then
+    if [[ -f "$HOME/install.sh" ]] && [[ -d "/etc/v2ray-agent" ]] && grep <"$HOME/install.sh" -q "作者：qihang518887"; then
         mv "$HOME/install.sh" /etc/v2ray-agent/install.sh
         local vasmaType=
         if [[ -d "/usr/bin/" ]]; then
@@ -2422,22 +2422,11 @@ initXrayXHTTPTLSPort() {
 menu() {
     cd "$HOME" || exit
     echoContent red "\n=============================================================="
-    echoContent green "作者：mack-a"
-    echoContent green "当前版本：v3.5.41"
-    echoContent green "Github：https://github.com/mack-a/v2ray-agent"
+    echoContent green "作者：qihang518887"
+    echoContent green "Github：https://github.com/qihang518887/xhttp-agent"
     echoContent green "描述：Xray VLESS + XHTTP + TLS\c"
     showInstallStatus
     checkWgetShowProgress
-    echoContent red "\n=========================== 推广区============================"
-    echoContent red "                                              "
-    echoContent yellow "VPS选购攻略"
-    echoContent green "https://www.v2ray-agent.com/archives/1679975663984"
-    echoContent yellow "年付10美金低价VPS AS4837"
-    echoContent green "https://www.v2ray-agent.com/archives/racknerdtao-can-zheng-li-nian-fu-10mei-yuan"
-    echoContent yellow "优质常驻套餐DMIT CN2-GIA"
-    echoContent green "https://www.v2ray-agent.com/archives/186cee7b-9459-4e57-b9b2-b07a4f36931c"
-    echoContent yellow "VPS探针：https://ping.v2ray-agent.com/"
-    echoContent red "                                              "
     echoContent red "=============================================================="
     echoContent yellow "2.任意组合安装"
     echoContent yellow "7.用户管理"
