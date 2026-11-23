@@ -196,7 +196,7 @@ buildXrayXHTTPTLSConfig() {
     jq -n --arg domain "${domainName}" --arg path "/${customPath#\/}xHTTP" \
         --argjson clients "${clientsJson}" --argjson publicPort "${port}" '
       {inbounds:[
-        {listen:"0.0.0.0",port:$publicPort,protocol:"vless",tag:"VLESSXHTTPTLS",
+        {listen:"::",port:$publicPort,protocol:"vless",tag:"VLESSXHTTPTLS",
          settings:{clients:$clients,decryption:"none"},
          streamSettings:{network:"xhttp",security:"tls",
            tlsSettings:{serverName:$domain,minVersion:"1.2",rejectUnknownSni:true,
@@ -211,7 +211,7 @@ buildXrayXHTTPH3Config() {
     jq -n --arg domain "${domainName}" --arg path "/${customPath#\/}xHTTP" --arg brutalUp "${brutalUp}" \
         --argjson clients "${clientsJson}" --argjson publicPort "${port}" '
       {inbounds:[
-        {listen:"0.0.0.0",port:$publicPort,protocol:"vless",tag:"VLESSXHTTPH3",
+        {listen:"::",port:$publicPort,protocol:"vless",tag:"VLESSXHTTPH3",
          settings:{clients:$clients,decryption:"none"},
          streamSettings:{network:"xhttp",security:"tls",
            tlsSettings:{serverName:$domain,minVersion:"1.2",rejectUnknownSni:true,alpn:["h3"],
