@@ -16,7 +16,7 @@ wget -O install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent/ma
 curl -L -o install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent/main/install.sh && sh install.sh
 ```
 
-安装时选择 `2.任意组合安装`，再选择 H3 直连、CDN，或同时安装两者。
+安装时选择 `1.任意组合安装`，再选择 H3 直连、CDN，或同时安装两者。
 
 ## 特色
 

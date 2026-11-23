@@ -2471,33 +2471,33 @@ menu() {
     showInstallStatus
     checkWgetShowProgress
     echoContent red "=============================================================="
-    echoContent yellow "2.任意组合安装"
-    echoContent yellow "7.用户管理"
-    echoContent yellow "9.证书管理"
-    echoContent yellow "16.core管理"
-    echoContent yellow "17.更新脚本"
-    echoContent yellow "20.卸载脚本"
+    echoContent yellow "1.任意组合安装"
+    echoContent yellow "2.用户管理"
+    echoContent yellow "3.证书管理"
+    echoContent yellow "4.core管理"
+    echoContent yellow "5.更新脚本"
+    echoContent yellow "6.卸载脚本"
     echoContent red "=============================================================="
     mkdirTools
     aliasInstall
     read -r -p "请选择:" selectInstallType
     case ${selectInstallType} in
-    2)
+    1)
         customXrayInstall
         ;;
-    7)
+    2)
         manageAccount 1
         ;;
-    9)
+    3)
         renewalTLS 1
         ;;
-    16)
+    4)
         xrayVersionManageMenu 1
         ;;
-    17)
+    5)
         updateXHTTPAgent 1
         ;;
-    20)
+    6)
         unInstall 1
         ;;
     esac
