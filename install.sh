@@ -2426,6 +2426,30 @@ initXrayXHTTPTLSPort() {
     if echo "${selectCustomInstallType}" | grep -q ",1,"; then allowPort "${xHTTPTLSPort}" udp; fi
     echoContent yellow "\n ---> XHTTP端口: ${xHTTPTLSPort}"
 }
+# 更新脚本
+updateXHTTPAgent() {
+    echoContent skyBlue "\n进度  $1/${totalProgress} : 更新xhttp-agent脚本"
+    local scriptTemp
+    scriptTemp=$(mktemp /etc/v2ray-agent/.install.XXXXXX) || return 1
+    if ! wget -q -O "${scriptTemp}" "https://raw.githubusercontent.com/qihang518887/xhttp-agent/main/install.sh" ||
+        [[ ! -s "${scriptTemp}" ]] || ! bash -n "${scriptTemp}"; then
+        rm -f "${scriptTemp}"
+        echoContent red " ---> 脚本下载或校验失败，保留当前版本"
+        return 1
+    fi
+    if ! chmod 700 "${scriptTemp}" || ! mv -f "${scriptTemp}" /etc/v2ray-agent/install.sh; then
+        rm -f "${scriptTemp}"
+        return 1
+    fi
+
+    echoContent green "\n ---> 更新完毕"
+    echoContent yellow " ---> 请手动执行[vasma]重新打开脚本"
+    echoContent yellow "如更新不成功，请手动执行下面命令\n"
+    echoContent skyBlue "wget -O /root/install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent/main/install.sh && chmod 700 /root/install.sh && sh /root/install.sh"
+    echo
+    exit 0
+}
+
 menu() {
     cd "$HOME" || exit
     echoContent red "\n=============================================================="
@@ -2459,6 +2483,7 @@ menu() {
         xrayVersionManageMenu 1
         ;;
     17)
+        updateXHTTPAgent 1
         ;;
     20)
         unInstall 1
