@@ -1559,6 +1559,14 @@ EOF
     fi
 
     initXrayXHTTPTLSPort || return 1
+    if echo "${selectCustomInstallType}" | grep -q ",1,"; then
+        read -r -p "请输入期望的本地下载速度（Mbps）[默认50，填0不设置]：" xhttpH3Up
+        xhttpH3Up=${xhttpH3Up:-50}
+        isNumber "${xhttpH3Up}" || {
+            echoContent red " ---> 请输入整数Mbps"
+            exit 0
+        }
+    fi
     local clients
     clients=$(initXrayClients)
     if echo "${selectCustomInstallType}" | grep -q ",2,"; then
@@ -2015,14 +2023,6 @@ customXrayInstall() {
         exit 0
     fi
     selectCustomInstallType=$(normalizeXrayInstallSelection "${selectCustomInstallType}")
-    if echo "${selectCustomInstallType}" | grep -q ",1,"; then
-        read -r -p "请输入期望的本地下载速度（Mbps）[默认50，填0不设置]：" xhttpH3Up
-        xhttpH3Up=${xhttpH3Up:-50}
-        isNumber "${xhttpH3Up}" || {
-            echoContent red " ---> 请输入整数Mbps"
-            exit 0
-        }
-    fi
     readLastInstallationConfig
     unInstallSubscribe
     totalProgress=12
