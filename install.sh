@@ -1752,8 +1752,8 @@ unInstall() {
     rm -rf /etc/v2ray-agent
 
 
-    rm -rf /usr/bin/vasma
-    rm -rf /usr/sbin/vasma
+    rm -rf /usr/bin/vasma /usr/sbin/vasma
+    rm -rf /usr/bin/xasma /usr/sbin/xasma
     echoContent green " ---> 卸载快捷方式完成"
     echoContent green " ---> 卸载v2ray-agent脚本完成"
 }
@@ -1960,29 +1960,22 @@ EOF
 
 # 脚本快捷方式
 aliasInstall() {
-
     if [[ -f "$HOME/install.sh" ]] && [[ -d "/etc/v2ray-agent" ]] && grep <"$HOME/install.sh" -q "作者：qihang518887"; then
-        mv "$HOME/install.sh" /etc/v2ray-agent/install.sh
-        local vasmaType=
-        if [[ -d "/usr/bin/" ]]; then
-            if [[ ! -f "/usr/bin/vasma" ]]; then
-                ln -s /etc/v2ray-agent/install.sh /usr/bin/vasma
-                chmod 700 /usr/bin/vasma
-                vasmaType=true
-            fi
+        mv "$HOME/install.sh" /etc/v2ray-agent/install.sh || return 1
+        rm -f "$HOME/install.sh"
+    fi
+    [[ -f "/etc/v2ray-agent/install.sh" ]] || return 0
+    chmod 700 /etc/v2ray-agent/install.sh || return 1
 
-            rm -rf "$HOME/install.sh"
-        elif [[ -d "/usr/sbin" ]]; then
-            if [[ ! -f "/usr/sbin/vasma" ]]; then
-                ln -s /etc/v2ray-agent/install.sh /usr/sbin/vasma
-                chmod 700 /usr/sbin/vasma
-                vasmaType=true
-            fi
-            rm -rf "$HOME/install.sh"
-        fi
-        if [[ "${vasmaType}" == "true" ]]; then
-            echoContent green "快捷方式创建成功，可执行[vasma]重新打开脚本"
-        fi
+    local xasmaPath=
+    if [[ -d "/usr/bin/" ]]; then
+        xasmaPath=/usr/bin/xasma
+    elif [[ -d "/usr/sbin" ]]; then
+        xasmaPath=/usr/sbin/xasma
+    fi
+    if [[ -n "${xasmaPath}" && ! -e "${xasmaPath}" && ! -L "${xasmaPath}" ]]; then
+        ln -s /etc/v2ray-agent/install.sh "${xasmaPath}" || return 1
+        echoContent green "快捷方式创建成功，可执行[xasma]重新打开脚本"
     fi
 }
 
@@ -2443,7 +2436,7 @@ updateXHTTPAgent() {
     fi
 
     echoContent green "\n ---> 更新完毕"
-    echoContent yellow " ---> 请手动执行[vasma]重新打开脚本"
+    echoContent yellow " ---> 请手动执行[xasma]重新打开脚本"
     echoContent yellow "如更新不成功，请手动执行下面命令\n"
     echoContent skyBlue "wget -O /root/install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent/main/install.sh && chmod 700 /root/install.sh && sh /root/install.sh"
     echo
