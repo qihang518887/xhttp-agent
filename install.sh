@@ -1039,6 +1039,13 @@ installCronTLS() {
         crontab /etc/v2ray-agent/backup_crontab.cron
         echoContent green "\n ---> 添加定时维护证书成功"
 }
+certificateDateEpoch() {
+    if [[ "${release}" == "alpine" ]]; then
+        TZ=UTC LC_ALL=C date -D '%b %e %T %Y' -d "${1% GMT}" +%s
+    else
+        date +%s -d "$1"
+    fi
+}
 # 更新证书
 renewalTLS() {
     if [[ -n $1 ]]; then
@@ -1085,7 +1092,7 @@ renewalTLS() {
     fi
 
     local expiryTime
-    if ! expiryTime=$(date +%s -d "${notAfter}" 2>/dev/null); then
+    if ! expiryTime=$(certificateDateEpoch "${notAfter}" 2>/dev/null); then
         echoContent red " ---> 无法解析证书真实到期时间"
         return 1
     fi
@@ -1103,7 +1110,7 @@ renewalTLS() {
     fi
 
     echoContent skyBlue " ---> 证书检查日期:$(date "+%F %H:%M:%S")"
-    echoContent skyBlue " ---> 证书真实到期时间:$(date -d @"${expiryTime}" +"%F %H:%M:%S")"
+    echoContent skyBlue " ---> 证书真实到期时间:${notAfter}"
     echoContent skyBlue " ---> 证书剩余天数:${tlsStatus}"
 
     if ((remainingSeconds > sslRenewalThresholdDays * 86400)); then
@@ -1123,9 +1130,9 @@ renewalTLS() {
         local newNotAfter
         if newNotAfter=$(openssl x509 -in "/etc/v2ray-agent/tls/${domain}.crt" -noout -enddate 2>/dev/null); then
             newNotAfter=${newNotAfter#notAfter=}
-            if newExpiry=$(date +%s -d "${newNotAfter}" 2>/dev/null) && ((newExpiry > currentTime && newExpiry > expiryTime)); then
+            if newExpiry=$(certificateDateEpoch "${newNotAfter}" 2>/dev/null) && ((newExpiry > currentTime && newExpiry > expiryTime)); then
                 renewalSuccess=true
-                echoContent green " ---> 证书续期成功，新到期时间:$(date -d @"${newExpiry}" +"%F %H:%M:%S")"
+                echoContent green " ---> 证书续期成功，新到期时间:${newNotAfter}"
             fi
         fi
     fi
