@@ -168,6 +168,7 @@ initVar() {
     wgetShowProgressStatus=
     lastInstallationConfig=
     xhttpDirectAddress=
+    xhttpPreferredCNAME=
     xhttpH3Up=50
 }
 
@@ -480,6 +481,18 @@ readLastInstallationConfig() {
         read -r -p "读取到上次安装的配置，是否使用 ？[y/n]:" lastInstallationConfigStatus
         if [[ "${lastInstallationConfigStatus}" == "y" ]]; then
             lastInstallationConfig=true
+            [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
+            [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
+            local h3Config="${configPath}01_VLESS_XHTTP_H3_inbounds.json"
+            if [[ -f "${h3Config}" ]]; then
+                local previousH3Up
+                previousH3Up=$(jq -r '.inbounds[0].streamSettings.finalmask.quicParams.brutalUp // empty' "${h3Config}")
+                if [[ -n "${previousH3Up}" ]]; then
+                    xhttpH3Up=${previousH3Up% mbps}
+                else
+                    xhttpH3Up=0
+                fi
+            fi
         fi
     fi
 }
@@ -1566,7 +1579,8 @@ EOF
     fi
 
     initXrayXHTTPTLSPort || return 1
-    if echo "${selectCustomInstallType}" | grep -q ",1,"; then
+    if echo "${selectCustomInstallType}" | grep -q ",1," &&
+        [[ -z "${lastInstallationConfig}" || ! -f "${configPath}01_VLESS_XHTTP_H3_inbounds.json" ]]; then
         read -r -p "请输入期望的本地下载速度（Mbps）[默认50，填0不设置]：" xhttpH3Up
         xhttpH3Up=${xhttpH3Up:-50}
         isNumber "${xhttpH3Up}" || {
@@ -1990,20 +2004,25 @@ reloadCore() {
 
 setupXHTTPSubscriptionAddresses() {
     if echo "${selectCustomInstallType}" | grep -q ",1,"; then
-        if echo "${selectCustomInstallType}" | grep -q ",2,"; then
-            while [[ -z "${xhttpDirectAddress}" ]]; do
-                read -r -p "请输入H3直连IP/域名（必填）:" xhttpDirectAddress
-            done
-        else
-            read -r -p "请输入H3直连IP/域名[回车使用公网IP]:" xhttpDirectAddress
-            [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
+        if [[ -z "${xhttpDirectAddress}" ]]; then
+            if echo "${selectCustomInstallType}" | grep -q ",2,"; then
+                while [[ -z "${xhttpDirectAddress}" ]]; do
+                    read -r -p "请输入H3直连IP/域名（必填）:" xhttpDirectAddress
+                done
+            else
+                read -r -p "请输入H3直连IP/域名[回车使用公网IP]:" xhttpDirectAddress
+                [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
+            fi
         fi
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
     fi
     if echo "${selectCustomInstallType}" | grep -q ",2,"; then
-        local preferredCNAME=
-        read -r -p "请输入优选CNAME[回车使用证书域名 ${domain}]:" preferredCNAME
-        printf '%s\n' "${preferredCNAME:-${domain}}" >/etc/v2ray-agent/cdn || return 1
+        local preferredCNAME=${xhttpPreferredCNAME}
+        if [[ -z "${preferredCNAME}" ]]; then
+            read -r -p "请输入优选CNAME[回车使用证书域名 ${domain}]:" preferredCNAME
+        fi
+        xhttpPreferredCNAME=${preferredCNAME:-${domain}}
+        printf '%s\n' "${xhttpPreferredCNAME}" >/etc/v2ray-agent/cdn || return 1
     fi
 }
 
