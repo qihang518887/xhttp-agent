@@ -1,4 +1,17 @@
-#!/usr/bin/env bash
+#!/bin/sh
+
+if [ -z "${BASH_VERSION:-}" ]; then
+    if ! command -v bash >/dev/null 2>&1; then
+        if [ -f /etc/alpine-release ]; then
+            apk add --no-cache bash || exit 1
+        else
+            echo "bash is required to run this script" >&2
+            exit 1
+        fi
+    fi
+    exec bash "$0" "$@"
+fi
+
 # 检测区
 # -------------------------------------------------------------
 # 检查系统
@@ -155,6 +168,7 @@ initVar() {
     wgetShowProgressStatus=
     lastInstallationConfig=
     xhttpDirectAddress=
+    xhttpH3Up=50
 }
 
 # Map menu selections to the XHTTP inbound configs.
@@ -173,7 +187,7 @@ normalizeXrayInstallSelection() {
     printf ',%s\n' "${normalized}"
 }
 
-isValidXHTTPTLSPort() {
+isNumber() {
     [[ "${1:-}" =~ ^[0-9]+$ ]]
 }
 
@@ -192,9 +206,9 @@ buildXrayXHTTPTLSConfig() {
 }
 
 buildXrayXHTTPH3Config() {
-    local port=$1 domainName=$2 customPath=$3 clientsJson=$4
+    local port=$1 domainName=$2 customPath=$3 clientsJson=$4 brutalUp=$5
     # h3单连接默认只允许100条流，跑满后所有会话上传都会卡住
-    jq -n --arg domain "${domainName}" --arg path "/${customPath#\/}xHTTP" \
+    jq -n --arg domain "${domainName}" --arg path "/${customPath#\/}xHTTP" --arg brutalUp "${brutalUp}" \
         --argjson clients "${clientsJson}" --argjson publicPort "${port}" '
       {inbounds:[
         {listen:"0.0.0.0",port:$publicPort,protocol:"vless",tag:"VLESSXHTTPH3",
@@ -203,7 +217,7 @@ buildXrayXHTTPH3Config() {
            tlsSettings:{serverName:$domain,minVersion:"1.2",rejectUnknownSni:true,alpn:["h3"],
              certificates:[{certificateFile:("/etc/v2ray-agent/tls/"+$domain+".crt"),keyFile:("/etc/v2ray-agent/tls/"+$domain+".key")}]},
            xhttpSettings:{host:$domain,path:$path,mode:"auto"},
-           finalmask:{quicParams:{maxIncomingStreams:4096}}}}
+           finalmask:{quicParams:({maxIncomingStreams:4096} + (if $brutalUp == "0" then {} else {congestion:"force-brutal",brutalUp:($brutalUp + " mbps")} end))}}}
       ]}'
 }
 
@@ -1548,7 +1562,7 @@ EOF
         rm "${configPath}02_VLESS_XHTTP_TLS_inbounds.json" >/dev/null 2>&1
     fi
     if echo "${selectCustomInstallType}" | grep -q ",1,"; then
-        buildXrayXHTTPH3Config "${xHTTPTLSPort}" "${domain}" "${customPath}" "${clients}" >"${configPath}01_VLESS_XHTTP_H3_inbounds.json" || return 1
+        buildXrayXHTTPH3Config "${xHTTPTLSPort}" "${domain}" "${customPath}" "${clients}" "${xhttpH3Up}" >"${configPath}01_VLESS_XHTTP_H3_inbounds.json" || return 1
     else
         rm "${configPath}01_VLESS_XHTTP_H3_inbounds.json" >/dev/null 2>&1
     fi
@@ -1776,7 +1790,7 @@ customUserEmail() {
 addUser() {
     read -r -p "请输入要添加的用户数量:" userNum
     echo
-    if [[ -z ${userNum} || ${userNum} -le 0 ]]; then
+    if ! isNumber "${userNum}" || [[ "${userNum}" -le 0 ]]; then
         echoContent red " ---> 输入有误，请重新输入"
         exit 0
     fi
@@ -1996,6 +2010,14 @@ customXrayInstall() {
         exit 0
     fi
     selectCustomInstallType=$(normalizeXrayInstallSelection "${selectCustomInstallType}")
+    if echo "${selectCustomInstallType}" | grep -q ",1,"; then
+        read -r -p "请输入期望的本地下载速度（Mbps）[默认50，填0不设置]：" xhttpH3Up
+        xhttpH3Up=${xhttpH3Up:-50}
+        isNumber "${xhttpH3Up}" || {
+            echoContent red " ---> 请输入整数Mbps"
+            exit 0
+        }
+    fi
     readLastInstallationConfig
     unInstallSubscribe
     totalProgress=12
@@ -2370,7 +2392,7 @@ initXrayXHTTPTLSPort() {
         local randomPortFound=false
         while ((attempts < 20)); do
             xHTTPTLSPort=$((RANDOM % 20001 + 10000))
-            if isValidXHTTPTLSPort "${xHTTPTLSPort}" && checkPort "${xHTTPTLSPort}" transaction; then
+            if isNumber "${xHTTPTLSPort}" && checkPort "${xHTTPTLSPort}" transaction; then
                 randomPortFound=true
                 break
             fi
@@ -2382,7 +2404,7 @@ initXrayXHTTPTLSPort() {
             return 1
         fi
     fi
-    if ! isValidXHTTPTLSPort "${xHTTPTLSPort}"; then
+    if ! isNumber "${xHTTPTLSPort}"; then
         echoContent red " ---> XHTTP TLS端口输入错误"
         return 1
     fi
