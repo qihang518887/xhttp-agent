@@ -895,12 +895,17 @@ checkPort() {
         [[ "${2:-}" == "transaction" ]] && return 1
         exit 0
     fi
-    # h3走UDP，tcp的LISTEN检查覆盖不到
-    if echo "${selectCustomInstallType}" | grep -q ",1," && [[ -n $(lsof -i "udp:$1") ]]; then
-        echoContent red "\n ---> $1/udp端口被占用，请手动关闭后安装\n"
-        lsof -i "udp:$1"
-        [[ "${2:-}" == "transaction" ]] && return 1
-        exit 0
+    # BusyBox环境下用内核UDP表匹配本地端口，避免把lsof输出误判为占用
+    if echo "${selectCustomInstallType}" | grep -q ",1,"; then
+        local udpPortHex udpSockets
+        udpPortHex=$(printf '%04X' "$((10#$1))")
+        udpSockets=$(awk -v port="${udpPortHex}" 'toupper(substr($2, index($2, ":") + 1)) == port { print }' /proc/net/udp)
+        if [[ -n "${udpSockets}" ]]; then
+            echoContent red "\n ---> $1/udp端口被占用，请手动关闭后安装\n"
+            echo "${udpSockets}"
+            [[ "${2:-}" == "transaction" ]] && return 1
+            exit 0
+        fi
     fi
 }
 
