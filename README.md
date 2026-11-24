@@ -33,7 +33,7 @@ curl -L -o install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent
 
 ### 管理功能
 
-- 支持账号管理并生成本地订阅，不部署 HTTP 订阅服务。
+- 支持账号管理；生成本地 VLESS 订阅，并通过 OpenSSL HTTPS 在 `8443` 端口提供 Mihomo YAML 订阅。
 - 支持证书续期、Xray core 管理和脚本更新。
 
 ## 注意事项
@@ -44,7 +44,8 @@ curl -L -o install.sh https://raw.githubusercontent.com/qihang518887/xhttp-agent
 - 优选地址只用于连接 CDN 边缘；SNI 和 Host 始终使用证书域名。
 - VLESS + XHTTP 节点需要启用 TLS。若订阅转换后显示 `tls: false`，需检查转换器生成的客户端配置。
 - 请先下载到文件，再用 `sh install.sh` 运行；不要把下载内容直接 pipe 给 `sh`。Alpine 上脚本会处理 Bash 启动。
-- 订阅只生成本地文件，不提供 HTTP 订阅服务。
+- Mihomo HTTPS 订阅使用 `8443/tcp`，除系统防火墙外，还需在云厂商安全组放行该端口。
+- HTTPS 订阅链接使用原版同类的每用户哈希路径作为访问凭证，请妥善保管；任何获得链接的人都能下载对应 YAML。
 
 ## 致谢
 
