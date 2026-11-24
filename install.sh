@@ -1694,9 +1694,14 @@ unInstallSubscribe() {
     rm -rf /etc/v2ray-agent/subscribe
 }
 
-# 添加订阅
+# 整合其他机器的订阅
 addSubscribeMenu() {
-    echoContent skyBlue "\n===================== 添加其他机器订阅 ======================="
+    echoContent skyBlue "\n===================== 整合其他机器订阅 ======================="
+    if [[ -s "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]]; then
+        grep -v '^$' "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" | awk '{print NR""":"$0}'
+    else
+        echoContent green " ---> 还没有整合其他订阅"
+    fi
     echoContent yellow "1.添加"
     echoContent yellow "2.移除"
     echoContent red "=============================================================="
@@ -1704,19 +1709,13 @@ addSubscribeMenu() {
     if [[ "${addSubscribeStatus}" == "1" ]]; then
         addOtherSubscribe
     elif [[ "${addSubscribeStatus}" == "2" ]]; then
-        if [[ ! -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]]; then
-            echoContent green " ---> 未安装其他订阅"
-            exit 0
-        fi
-        grep -v '^$' "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" | awk '{print NR""":"$0}'
+        [[ -s "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]] || exit 0
         read -r -p "请选择要删除的订阅编号[仅支持单个删除]:" delSubscribeIndex
         if [[ -z "${delSubscribeIndex}" ]]; then
             echoContent green " ---> 不可以为空"
             exit 0
         fi
-
         sed -i "$((delSubscribeIndex))d" "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" >/dev/null 2>&1
-
         echoContent green " ---> 其他机器订阅删除成功"
         subscribe
     fi
@@ -1746,7 +1745,7 @@ addOtherSubscribe() {
 subscribe() (
     umask 022
     local publishedDir=/etc/v2ray-agent/subscribe
-    local subscribePublishPath publishBackup status subMd5 vlessFile clashFile updateOtherSubscribeStatus=
+    local subscribePublishPath publishBackup status subMd5 vlessFile clashFile
     subscribePublishPath=$(mktemp -d "${publishedDir}.new.XXXXXX") || return 1
     publishBackup="${subscribePublishPath}.previous"
     # 只有交换未完成（备份还在）且退出码非 0 才回滚，否则会把本次成功的发布覆盖回旧版。
@@ -1764,19 +1763,13 @@ subscribe() (
         echoContent red " ---> 当前未安装可生成订阅的 Xray 服务"
         return 1
     fi
-
-    echoContent skyBlue "-------------------------备注---------------------------------"
-    echoContent yellow "# 查看订阅会重新生成本地账号的订阅\n"
-
     showAccounts >/dev/null || return 1
     subMd5=$(subscriptionHash) || return 1
     vlessFile="${subscribePublishPath}/default/${subMd5}"
     clashFile="${subscribePublishPath}/http/s/clashMeta/${subMd5}"
-    if [[ -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" && -n $(cat "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl") ]]; then
-        read -r -p "读取到其他订阅，是否更新？[y/n]" updateOtherSubscribeStatus
-        if [[ "${updateOtherSubscribeStatus}" == "y" ]]; then
-            updateRemoteSubscribe "${subscribePublishPath}" || return 1
-        fi
+    # 每次查看订阅都重建远端缓存：跳过会让整合进来的节点从订阅里消失
+    if [[ -s "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]]; then
+        updateRemoteSubscribe "${subscribePublishPath}" || return 1
     fi
     cat /etc/v2ray-agent/subscribe_local/default/* >"${vlessFile}" || return 1
     if [[ -s "${subscribePublishPath}/.remote/default" ]]; then
