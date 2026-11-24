@@ -1720,23 +1720,20 @@ addSubscribeMenu() {
         subscribe
     fi
 }
-# 添加其他机器clashMeta订阅
+# 添加其他机器订阅
 addOtherSubscribe() {
-    echoContent yellow "格式：域名:端口/s/clashMeta/<哈希>:别名[:http]"
-    echoContent skyBlue "示例：1.2.3.4:8443/s/clashMeta/abc123:vps2\n"
-    read -r -p "请输入远端订阅地址:" remoteSubscribeUrl
-    if [[ -z "${remoteSubscribeUrl}" ]]; then
-        echoContent red " ---> 不可为空"
+    echoContent skyBlue "示例：vps2 https://1.2.3.4:8443/s/clashMeta/abc123\n"
+    read -r -p "请输入 [别名] [空格] [订阅地址]:" serverAlias remoteUrl
+    if [[ -z "${remoteUrl}" ]]; then
+        echoContent red " ---> 需要别名和地址两项"
         addOtherSubscribe
-    elif ! echo "${remoteSubscribeUrl}" | grep -q ":"; then
-        echoContent red " ---> 规则不合法"
     else
         mkdir -p /etc/v2ray-agent/subscribe_remote
-        if [[ -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]] && grep -qF "${remoteSubscribeUrl}" /etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl; then
+        if [[ -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" ]] && grep -qF "${remoteUrl}" /etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl; then
             echoContent red " ---> 此订阅已添加"
             exit 0
         fi
-        echo "${remoteSubscribeUrl}" >>/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl
+        echo "${serverAlias} ${remoteUrl}" >>/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl
         subscribe
     fi
 }
@@ -1822,11 +1819,9 @@ updateRemoteSubscribe() {
     local remoteCache="${publishPath}/.remote"
     mkdir -p "${remoteCache}" || return 1
     while IFS= read -r line; do
-        local f1 f2 remoteUrl serverAlias subscribeTypeRemote subscribeType remoteContent clashMetaProxies default rest
-        IFS=':' read -r f1 f2 serverAlias subscribeTypeRemote rest <<<"${line}"
-        remoteUrl="${f1}:${f2}"
-        subscribeType=${subscribeTypeRemote:-https}
-        remoteContent=$(curl -s "${subscribeType}://${remoteUrl}")
+        local serverAlias remoteUrl remoteContent clashMetaProxies default
+        read -r serverAlias remoteUrl <<<"${line}"
+        remoteContent=$(curl -s "${remoteUrl}")
 
         if [[ "${remoteUrl}" == */s/clashMeta/* ]]; then
             clashMetaProxies=$(printf '%s\n' "${remoteContent}" | awk -v suffix="_${serverAlias}" '
