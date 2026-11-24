@@ -1865,7 +1865,7 @@ viewSubscriptionByUser() {
     # 查看订阅会重新生成本地账号的订阅
     subscribe || return 1
     local uuid emailMd5
-    uuid=$(head -1 "/etc/v2ray-agent/subscribe_local/default/${accountSelectionKey}" | sed 's#^vless://##; s#@.*##')
+    uuid=$(jq -r --arg email "${accountSelectionKey}" '.inbounds[0].settings.clients[] | select(.email == $email).id' "${inboundConfig}") || return 1
     emailMd5=$(printf '%s\n' "${uuid}" | md5sum | awk '{print $1}')
     showUserSubscriptions "${accountSelectionKey}" "${emailMd5}"
 }
