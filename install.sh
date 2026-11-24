@@ -467,7 +467,7 @@ mkdirTools() {
 }
 # 安装工具包
 installTools() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 安装工具"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 安装工具"
     # installTools 可能在 menu() 创建其余目录之前运行。
     mkdir -p /etc/v2ray-agent
     touch /etc/v2ray-agent/install.log
@@ -642,7 +642,7 @@ handleSubscriptionHTTPS() {
 
 # 初始化TLS证书域名
 initTLSDomain() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 配置 TLS 证书域名"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 配置 TLS 证书域名"
     if [[ -n "${currentHost}" && -z "${lastInstallationConfig}" ]]; then
         echo
         read -r -p "读取到上次安装记录，是否使用上次安装时的域名 ？[y/n]:" historyDomainStatus
@@ -828,7 +828,7 @@ checkPort() {
 
 # 安装TLS
 installTLS() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 申请TLS证书\n"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 申请TLS证书\n"
     readAcmeTLS
     local tlsDomain=${domain}
 
@@ -916,7 +916,7 @@ initRandomPath() {
 # 自定义/随机路径
 randomPathFunction() {
     if [[ -n $1 ]]; then
-        echoContent skyBlue "\n进度  $1/${totalProgress} : 生成随机路径"
+        echoContent skyBlue "\n进度 $1/${totalProgress} : 生成随机路径"
     else
         echoContent skyBlue "生成随机路径"
     fi
@@ -962,7 +962,7 @@ certificateDateEpoch() {
 # 更新证书
 renewalTLS() {
     if [[ -n $1 ]]; then
-        echoContent skyBlue "\n进度  $1/1 : 更新证书"
+        echoContent skyBlue "\n进度 $1/1 : 更新证书"
     fi
     local domain=${currentHost}
     if [[ -z "${currentHost}" && -n "${tlsDomain}" ]]; then
@@ -1104,7 +1104,7 @@ installXray() {
         prereleaseStatus=true
     fi
 
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 安装Xray"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 安装Xray"
 
     if [[ ! -f "/etc/v2ray-agent/xray/xray" || "${3:-}" == force ]]; then
         if [[ "${prereleaseStatus}" == "true" ]]; then
@@ -1127,7 +1127,7 @@ installXray() {
 
 # xray版本管理
 xrayVersionManageMenu() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : Xray版本管理"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : Xray版本管理"
     if [[ "${coreInstallType}" != "1" ]]; then
         echoContent red " ---> 没有检测到安装目录，请执行脚本安装内容"
         exit 0
@@ -1260,7 +1260,7 @@ updateXray() {
 
 # Xray开机自启
 installXrayService() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 配置Xray开机自启"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 配置Xray开机自启"
     execStart='/etc/v2ray-agent/xray/xray run -confdir /etc/v2ray-agent/xray/conf'
     if [[ -n $(find /bin /usr/bin -name "systemctl") ]]; then
         rm -rf /etc/systemd/system/xray.service
@@ -1425,7 +1425,7 @@ EOF
     initXrayXHTTPTLSPort || return 1
     if [[ ${selectCustomInstallType} == *,1,* ]] &&
         { [[ -z "${lastInstallationConfig}" ]] || ! jq -e '[.inbounds[] | select(.streamSettings.tlsSettings.alpn[0] == "h3")] | any' "${inboundConfig}" >/dev/null; }; then
-        read -r -p "请输入期望的本地下载速度（Mbps，仅 H3 直连生效）[默认50，填0不设置]：" xhttpH3Up
+        read -r -p "请输入期望的本地下载速度（Mbps，仅 H3 直连生效）[回车默认50，填0不设置]:" xhttpH3Up
         xhttpH3Up=${xhttpH3Up:-50}
         isNumber "${xhttpH3Up}" || {
             echoContent red " ---> 请输入整数Mbps"
@@ -1624,6 +1624,7 @@ setupXHTTPSubscriptionAddresses() {
         nodeTag=${addressInput:-${nodeTag:-${domain}}}
     fi
     printf '%s\n' "${nodeTag:-${domain}}" >/etc/v2ray-agent/nodeTag || return 1
+    echoContent green "\n ---> 本机标识:${nodeTag}"
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
         echoContent skyBlue "\n进度 10/${totalProgress} : H3直连地址"
         if [[ -z "${lastInstallationConfig}" || -z "${xhttpDirectAddress}" ]]; then
@@ -1632,6 +1633,7 @@ setupXHTTPSubscriptionAddresses() {
         fi
         [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
+        echoContent green "\n ---> 直连地址:${xhttpDirectAddress}"
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
         echoContent skyBlue "\n进度 11/${totalProgress} : CDN优选CNAME"
@@ -1640,6 +1642,7 @@ setupXHTTPSubscriptionAddresses() {
             xhttpPreferredCNAME=${addressInput:-${xhttpPreferredCNAME:-${domain}}}
         fi
         printf '%s\n' "${xhttpPreferredCNAME:-${domain}}" >/etc/v2ray-agent/cdn || return 1
+        echoContent green "\n ---> 优选CNAME:${xhttpPreferredCNAME}"
     fi
 }
 
@@ -1912,7 +1915,7 @@ initXrayXHTTPTLSPort() {
 }
 # 更新脚本
 updateXHTTPAgent() {
-    echoContent skyBlue "\n进度  $1/${totalProgress} : 更新xhttp-agent脚本"
+    echoContent skyBlue "\n进度 $1/${totalProgress} : 更新xhttp-agent脚本"
     local scriptTemp
     scriptTemp=$(mktemp /etc/v2ray-agent/.install.XXXXXX) || return 1
     if ! wget -q -O "${scriptTemp}" "https://raw.githubusercontent.com/qihang518887/xhttp-agent/main/install.sh" ||
