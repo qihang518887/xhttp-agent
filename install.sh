@@ -2322,7 +2322,28 @@ subscribe() (
                     cat "/etc/v2ray-agent/subscribe_local/clashMeta/${email}" >>"${subscribePublishPath}/clashMeta/${emailMd5}" || return 1
 
                     sed -i '1i\proxies:' "${subscribePublishPath}/clashMeta/${emailMd5}" || return 1
-
+                    cat >>"${subscribePublishPath}/clashMeta/${emailMd5}" <<'EOF'
+mode: rule
+rule-providers:
+  ai-all:
+    type: http
+    behavior: classical
+    url: https://cdn.jsdelivr.net/gh/VPSDance/ai-proxy-rules@main/rules/clash/all.yaml
+    path: ./ruleset/ai-all.yaml
+    interval: 86400
+proxy-groups:
+  - name: 非国内
+    type: select
+    include-all-proxies: true
+  - name: AI
+    type: select
+    include-all-proxies: true
+rules:
+  - RULE-SET,ai-all,AI
+  - GEOSITE,cn,DIRECT
+  - GEOIP,CN,DIRECT,no-resolve
+  - MATCH,非国内
+EOF
                 fi
 
             done < <(find /etc/v2ray-agent/subscribe_local/default/ -type f)
