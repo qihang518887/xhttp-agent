@@ -1825,6 +1825,43 @@ subscribe() (
     fi
     cat >>"${clashFile}" <<'EOF'
 mode: rule
+dns:
+  enable: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter-mode: blacklist
+  fake-ip-filter:
+    - '*.lan'
+    - '*.local'
+    - localhost
+    - '*.localhost'
+    - '*.home.arpa'
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  nameserver:
+    - https://cloudflare-dns.com/dns-query
+    - https://dns.google/dns-query
+  nameserver-policy:
+    "geosite:cn,private":
+      - 223.5.5.5
+      - 119.29.29.29
+  proxy-server-nameserver:
+    - https://cloudflare-dns.com/dns-query
+    - https://dns.google/dns-query
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: true
+  override-destination: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+    QUIC:
+      ports: [443, 8443]
 rule-providers:
   ai-all:
     type: http
@@ -1833,17 +1870,23 @@ rule-providers:
     path: ./ruleset/ai-all.yaml
     interval: 86400
 proxy-groups:
-  - name: 非国内
+  - name: 海外
     type: select
     include-all-proxies: true
+  - name: Google
+    type: select
+    include-all-proxies: true
+    proxies:
+      - 海外
   - name: AI
     type: select
     include-all-proxies: true
 rules:
+  - DOMAIN-KEYWORD,google,Google
   - RULE-SET,ai-all,AI
   - GEOSITE,cn,DIRECT
   - GEOIP,CN,DIRECT,no-resolve
-  - MATCH,非国内
+  - MATCH,海外
 EOF
     rm -rf "${subscribePublishPath}/.remote" || return 1
     chmod 755 "${subscribePublishPath}" || return 1
