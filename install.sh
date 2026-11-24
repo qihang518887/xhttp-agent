@@ -159,6 +159,7 @@ initVar() {
     lastInstallationConfig=
     xhttpDirectAddress=
     xhttpPreferredCNAME=
+    nodeTag=
     xhttpH3Up=50
     inboundConfig=/etc/v2ray-agent/xray/conf/08_VLESS_XHTTP_inbounds.json
 }
@@ -355,6 +356,7 @@ readLastInstallationConfig() {
         read -r -p "读取到上次安装的配置，是否使用 ？[y/n]:" lastInstallationConfigStatus
         if [[ "${lastInstallationConfigStatus}" == "y" ]]; then
             lastInstallationConfig=true
+            [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
             [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
             [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
             local previousH3Up
@@ -1613,21 +1615,31 @@ reloadCore() {
     fi
 }
 
+# 本机标识与节点地址
 setupXHTTPSubscriptionAddresses() {
-    local addressInput nodeTag=
-    [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
-    read -r -p "请输入本机标识（节点名前缀）[回车使用 ${nodeTag:-${domain}}]:" addressInput
-    printf '%s\n' "${addressInput:-${nodeTag:-${domain}}}" >/etc/v2ray-agent/nodeTag || return 1
+    local addressInput
+    echoContent skyBlue "\n进度 9/${totalProgress} : 本机标识"
+    if [[ -z "${lastInstallationConfig}" || -z "${nodeTag}" ]]; then
+        read -r -p "请输入本机标识（节点名前缀）[回车使用 ${nodeTag:-${domain}}]:" addressInput
+        nodeTag=${addressInput:-${nodeTag:-${domain}}}
+    fi
+    printf '%s\n' "${nodeTag:-${domain}}" >/etc/v2ray-agent/nodeTag || return 1
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
-        read -r -p "请输入H3直连IP/域名[回车使用 ${xhttpDirectAddress:-公网IP}]:" addressInput
-        xhttpDirectAddress=${addressInput:-${xhttpDirectAddress}}
+        echoContent skyBlue "\n进度 10/${totalProgress} : H3直连地址"
+        if [[ -z "${lastInstallationConfig}" || -z "${xhttpDirectAddress}" ]]; then
+            read -r -p "请输入H3直连IP/域名[回车使用 ${xhttpDirectAddress:-公网IP}]:" addressInput
+            xhttpDirectAddress=${addressInput:-${xhttpDirectAddress}}
+        fi
         [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
-        read -r -p "请输入优选CNAME[回车使用 ${xhttpPreferredCNAME:-证书域名 ${domain}}]:" addressInput
-        xhttpPreferredCNAME=${addressInput:-${xhttpPreferredCNAME:-${domain}}}
-        printf '%s\n' "${xhttpPreferredCNAME}" >/etc/v2ray-agent/cdn || return 1
+        echoContent skyBlue "\n进度 11/${totalProgress} : CDN优选CNAME"
+        if [[ -z "${lastInstallationConfig}" || -z "${xhttpPreferredCNAME}" ]]; then
+            read -r -p "请输入优选CNAME[回车使用 ${xhttpPreferredCNAME:-证书域名 ${domain}}]:" addressInput
+            xhttpPreferredCNAME=${addressInput:-${xhttpPreferredCNAME:-${domain}}}
+        fi
+        printf '%s\n' "${xhttpPreferredCNAME:-${domain}}" >/etc/v2ray-agent/cdn || return 1
     fi
 }
 
@@ -1649,7 +1661,7 @@ customXrayInstall() {
     selectCustomInstallType=",${selectCustomInstallType},"
     readLastInstallationConfig
     unInstallSubscribe
-    totalProgress=8
+    totalProgress=11
     installTools 1 || return 1
     initTLSDomain 2 || return 1
     installTLS 3 || return 1
