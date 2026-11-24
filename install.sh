@@ -1746,22 +1746,16 @@ reloadCore() {
 }
 
 setupXHTTPSubscriptionAddresses() {
+    local addressInput
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
-        if [[ -z "${xhttpDirectAddress}" ]]; then
-            if [[ ${selectCustomInstallType} == *,2,* ]]; then
-                while [[ -z "${xhttpDirectAddress}" ]]; do
-                    read -r -p "请输入H3直连IP/域名（必填）:" xhttpDirectAddress
-                done
-            else
-                read -r -p "请输入H3直连IP/域名[回车使用公网IP]:" xhttpDirectAddress
-                [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
-            fi
-        fi
+        read -r -p "请输入H3直连IP/域名[回车使用 ${xhttpDirectAddress:-公网IP}]:" addressInput
+        xhttpDirectAddress=${addressInput:-${xhttpDirectAddress}}
+        [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
-        [[ -n "${xhttpPreferredCNAME}" ]] || read -r -p "请输入优选CNAME[回车使用证书域名 ${domain}]:" xhttpPreferredCNAME
-        xhttpPreferredCNAME=${xhttpPreferredCNAME:-${domain}}
+        read -r -p "请输入优选CNAME[回车使用 ${xhttpPreferredCNAME:-证书域名 ${domain}}]:" addressInput
+        xhttpPreferredCNAME=${addressInput:-${xhttpPreferredCNAME:-${domain}}}
         printf '%s\n' "${xhttpPreferredCNAME}" >/etc/v2ray-agent/cdn || return 1
     fi
 }
