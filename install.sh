@@ -1453,7 +1453,7 @@ defaultBase64Code() {
 
 # 生成账号
 showAccounts() {
-    local uuidValue nodeName
+    local uuidValue nodeTag nodeName
     readInstallType
     readInstallProtocolType
     readConfigHostPathUUID
@@ -1466,14 +1466,17 @@ showAccounts() {
     [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
     [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
     echoContent skyBlue "\n================================ VLESS XHTTP TLS ================================\n"
-    nodeName=${uuidValue%%-*}
+    # 节点名用本机标识，整合多台机器时一眼看得出来自哪台
+    nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
+    nodeTag=${nodeTag:-${uuidValue%%-*}}
+    nodeName=${nodeTag}
     if [[ ${currentInstallProtocolType} == *,1,* ]]; then
-        [[ ${currentInstallProtocolType} == *,2,* ]] && nodeName="${nodeName}_h3"
+        [[ ${currentInstallProtocolType} == *,2,* ]] && nodeName="${nodeTag}_h3"
         echoContent skyBlue "\n ---> 账号:${nodeName}"
         defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpDirectAddress}" "${currentPath}xHTTP" h3 || return 1
     fi
     if [[ ${currentInstallProtocolType} == *,2,* ]]; then
-        nodeName="${uuidValue%%-*}_cdn1"
+        nodeName="${nodeTag}_cdn1"
         echoContent skyBlue "\n ---> 账号:${nodeName}"
         defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpPreferredCNAME}" "${currentPath}xHTTP" h2 || return 1
         nodeName="${nodeName}_h3"
@@ -1611,7 +1614,10 @@ reloadCore() {
 }
 
 setupXHTTPSubscriptionAddresses() {
-    local addressInput
+    local addressInput nodeTag=
+    [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
+    read -r -p "请输入本机标识（节点名前缀）[回车使用 ${nodeTag:-${domain}}]:" addressInput
+    printf '%s\n' "${addressInput:-${nodeTag:-${domain}}}" >/etc/v2ray-agent/nodeTag || return 1
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
         read -r -p "请输入H3直连IP/域名[回车使用 ${xhttpDirectAddress:-公网IP}]:" addressInput
         xhttpDirectAddress=${addressInput:-${xhttpDirectAddress}}
