@@ -1369,8 +1369,9 @@ initXrayConfig() {
     fi
 
     if [[ -z "${uuid}" ]]; then
-        customUUID init || return 1
-        uuid=${currentCustomUUID}
+        read -r -p "请输入合法的UUID，[回车]随机UUID:" uuid
+        echo
+        [[ -n "${uuid}" ]] || uuid=$(/etc/v2ray-agent/xray/xray uuid)
         echoContent green "\n ${uuid}"
         echo
     fi
@@ -1440,50 +1441,44 @@ defaultBase64Code() {
     local add=$4
     local path=$5
     local alpn=${6:-h2}
+    local xhttpMode=packet-up
+    [[ "${alpn}" == "h3" ]] && xhttpMode=auto
     local xhttpTLSURI
-    xhttpTLSURI=$(buildVLESSXHTTPTLSURI "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${currentXHTTPMode:-auto}" "${nodeName}" "${alpn}") || return 1
+    xhttpTLSURI=$(buildVLESSXHTTPTLSURI "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${xhttpMode}" "${nodeName}" "${alpn}") || return 1
     echoContent yellow " ---> 通用格式(VLESS+XHTTP+TLS)"
     echoContent green "    ${xhttpTLSURI}"
     printf '%s\n' "${xhttpTLSURI}" >>"/etc/v2ray-agent/subscribe_local/default/${nodeName}" || return 1
-    buildMihomoXHTTPTLSNode "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${currentXHTTPMode:-auto}" "${nodeName}" "${alpn}" >>"/etc/v2ray-agent/subscribe_local/clashMeta/${nodeName}" || return 1
+    buildMihomoXHTTPTLSNode "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${xhttpMode}" "${nodeName}" "${alpn}" >>"/etc/v2ray-agent/subscribe_local/clashMeta/${nodeName}" || return 1
 }
 
 # 生成账号
 showAccounts() {
-    local accountUsers uuidValue nodeBase nodeName
+    local uuidValue nodeName
     readInstallType
     readInstallProtocolType
     readConfigHostPathUUID
 
     echo
-    echoContent skyBlue "\n进度 ${totalProgress}/${totalProgress} : 账号"
     rm -rf /etc/v2ray-agent/subscribe_local/default/* /etc/v2ray-agent/subscribe_local/clashMeta/*
-    if [[ -n "${currentInstallProtocolType}" ]]; then
-        accountUsers=$(jq -r '.inbounds[0].settings.clients[]? | [.id] | @tsv' "${inboundConfig}") || return 1
-        [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
-        [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
-        [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
-        echoContent skyBlue "\n================================ VLESS XHTTP TLS ================================\n"
-        while IFS=$'\t' read -r uuidValue; do
-            [[ -n "${uuidValue}" ]] || continue
-            nodeBase=${uuidValue%%-*}
-            if [[ ${currentInstallProtocolType} == *,1,* ]]; then
-                nodeName=${nodeBase}
-                if [[ ${currentInstallProtocolType} == *,2,* ]]; then nodeName="${nodeBase}_h3"; fi
-                echoContent skyBlue "\n ---> 账号:${nodeName}"
-                currentXHTTPMode=auto
-                defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpDirectAddress}" "${currentPath}xHTTP" h3 || return 1
-            fi
-            if [[ ${currentInstallProtocolType} == *,2,* ]]; then
-                nodeName="${nodeBase}_cdn1"
-                echoContent skyBlue "\n ---> 账号:${nodeName}"
-                currentXHTTPMode=packet-up
-                defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpPreferredCNAME}" "${currentPath}xHTTP" h2 || return 1
-                nodeName="${nodeName}_h3"
-                echoContent skyBlue "\n ---> 账号:${nodeName}"
-                defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpPreferredCNAME}" "${currentPath}xHTTP" h3 || return 1
-            fi
-        done <<<"${accountUsers}"
+    [[ -n "${currentInstallProtocolType}" ]] || return 1
+    uuidValue=$(jq -r '.inbounds[0].settings.clients[0].id' "${inboundConfig}") || return 1
+    [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
+    [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
+    [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
+    echoContent skyBlue "\n================================ VLESS XHTTP TLS ================================\n"
+    nodeName=${uuidValue%%-*}
+    if [[ ${currentInstallProtocolType} == *,1,* ]]; then
+        [[ ${currentInstallProtocolType} == *,2,* ]] && nodeName="${nodeName}_h3"
+        echoContent skyBlue "\n ---> 账号:${nodeName}"
+        defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpDirectAddress}" "${currentPath}xHTTP" h3 || return 1
+    fi
+    if [[ ${currentInstallProtocolType} == *,2,* ]]; then
+        nodeName="${uuidValue%%-*}_cdn1"
+        echoContent skyBlue "\n ---> 账号:${nodeName}"
+        defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpPreferredCNAME}" "${currentPath}xHTTP" h2 || return 1
+        nodeName="${nodeName}_h3"
+        echoContent skyBlue "\n ---> 账号:${nodeName}"
+        defaultBase64Code "${xrayVLESSXHTTPTLSPort}" "${nodeName}" "${uuidValue}" "${xhttpPreferredCNAME}" "${currentPath}xHTTP" h3 || return 1
     fi
 }
 unInstall() {
@@ -1506,22 +1501,6 @@ unInstall() {
     rm -rf /usr/bin/xasma /usr/sbin/xasma
     echoContent green " ---> 卸载快捷方式完成"
     echoContent green " ---> 卸载v2ray-agent脚本完成"
-}
-customUUID() {
-    local initialization=${1:-}
-    read -r -p "请输入合法的UUID，[回车]随机UUID:" currentCustomUUID
-    echo
-    if [[ -z "${currentCustomUUID}" ]]; then
-        currentCustomUUID=$(/etc/v2ray-agent/xray/xray uuid)
-        [[ "${initialization}" == init ]] || echoContent yellow "uuid：${currentCustomUUID}\n"
-    elif [[ "${initialization}" != init && "${coreInstallType}" == "1" ]]; then
-        local checkUUID
-        checkUUID=$(jq -r --arg currentUUID "${currentCustomUUID}" '.inbounds[0].settings.clients[]? | select(.id == $currentUUID) | .id' "${inboundConfig}")
-        if [[ -n "${checkUUID}" ]]; then
-            echoContent red " ---> UUID不可重复"
-            exit 0
-        fi
-    fi
 }
 
 checkLog() {
@@ -1689,6 +1668,11 @@ cronFunction() {
         exit 0
     fi
 }
+# 订阅文件名（由UUID决定，链接本身即凭证）
+subscriptionHash() {
+    jq -r '.inbounds[0].settings.clients[0].id' "${inboundConfig}" | md5sum | awk '{print $1}'
+}
+
 # 查看订阅：每次都从配置重建
 showSubscription() {
     if [[ -z "${configPath}" ]]; then
@@ -1696,19 +1680,13 @@ showSubscription() {
         exit 0
     fi
     subscribe || return 1
-    local uuid emailMd5
-    uuid=$(jq -r '.inbounds[0].settings.clients[0].id' "${inboundConfig}") || return 1
-    emailMd5=$(printf '%s\n' "${uuid}" | md5sum | awk '{print $1}')
+    local subMd5
+    subMd5=$(subscriptionHash) || return 1
     echoContent skyBlue "=============================================================="
-    echoContent skyBlue "\nVLESS 通用订阅（Base64）"
-    echoContent gray "本地文件：/etc/v2ray-agent/subscribe/default/${emailMd5}"
-    base64 -d "/etc/v2ray-agent/subscribe/default/${emailMd5}"
-    echo
-    echoContent white "=============================================================="
-    echoContent skyBlue "Mihomo HTTPS 订阅"
-    echoContent gray "本地文件：/etc/v2ray-agent/subscribe/http/s/clashMeta/${emailMd5}"
+    echoContent skyBlue "\nMihomo HTTPS 订阅"
+    echoContent gray "本地文件：/etc/v2ray-agent/subscribe/http/s/clashMeta/${subMd5}"
     echoContent gray "订阅链接（请妥善保管，链接本身即访问凭证）："
-    echoContent brightGreen "https://${currentHost}:8443/s/clashMeta/${emailMd5}"
+    echoContent brightGreen "https://${currentHost}:8443/s/clashMeta/${subMd5}"
 }
 
 unInstallSubscribe() {
@@ -1767,9 +1745,8 @@ addOtherSubscribe() {
 # 订阅
 subscribe() (
     umask 022
-    readInstallProtocolType
     local publishedDir=/etc/v2ray-agent/subscribe
-    local subscribePublishPath publishBackup status updateOtherSubscribeStatus=
+    local subscribePublishPath publishBackup status subMd5 vlessFile clashFile updateOtherSubscribeStatus=
     subscribePublishPath=$(mktemp -d "${publishedDir}.new.XXXXXX") || return 1
     publishBackup="${subscribePublishPath}.previous"
     # 只有交换未完成（备份还在）且退出码非 0 才回滚，否则会把本次成功的发布覆盖回旧版。
@@ -1783,48 +1760,36 @@ subscribe() (
     exit "${status}"
     ' EXIT
     mkdir -p "${subscribePublishPath}/"{default,http/s/clashMeta} || return 1
-    if [[ "${coreInstallType}" == "1" ]]; then
+    if [[ "${coreInstallType}" != "1" ]]; then
+        echoContent red " ---> 当前未安装可生成订阅的 Xray 服务"
+        return 1
+    fi
 
-        echoContent skyBlue "-------------------------备注---------------------------------"
-        echoContent yellow "# 查看订阅会重新生成本地账号的订阅\n"
+    echoContent skyBlue "-------------------------备注---------------------------------"
+    echoContent yellow "# 查看订阅会重新生成本地账号的订阅\n"
 
-        showAccounts >/dev/null || return 1
-        if [[ -n $(ls /etc/v2ray-agent/subscribe_local/default/) ]]; then
-            if [[ -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" && -n $(cat "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl") ]]; then
-                read -r -p "读取到其他订阅，是否更新？[y/n]" updateOtherSubscribeStatus
-            fi
-            if [[ "${updateOtherSubscribeStatus}" == "y" ]]; then
-                updateRemoteSubscribe "${subscribePublishPath}" || return 1
-            fi
-            local email
-            while IFS= read -r email; do
-                email=${email##*/}
-                local uuid emailMd5=
-                uuid=$(head -1 "/etc/v2ray-agent/subscribe_local/default/${email}" | sed 's#^vless://##; s#@.*##')
-                emailMd5=$(printf '%s\n' "${uuid}" | md5sum | awk '{print $1}')
-
-                # 同一账号的多个节点文件拼进同一份订阅，头和规则在循环外补一次
-                cat "/etc/v2ray-agent/subscribe_local/default/${email}" >>"${subscribePublishPath}/default/${emailMd5}" || return 1
-                if [[ -f "/etc/v2ray-agent/subscribe_local/clashMeta/${email}" ]]; then
-                    cat "/etc/v2ray-agent/subscribe_local/clashMeta/${email}" >>"${subscribePublishPath}/http/s/clashMeta/${emailMd5}" || return 1
-                fi
-            done < <(find /etc/v2ray-agent/subscribe_local/default/ -type f)
-            local publishFile
-            for publishFile in "${subscribePublishPath}"/default/*; do
-                [[ -f "${publishFile}" ]] || continue
-                if [[ -s "${subscribePublishPath}/.remote/default" ]]; then
-                    cat "${subscribePublishPath}/.remote/default" >>"${publishFile}" || return 1
-                fi
-                base64 -w 0 "${publishFile}" >"${publishFile}.b64" || return 1
-                mv -f "${publishFile}.b64" "${publishFile}" || return 1
-            done
-            for publishFile in "${subscribePublishPath}"/http/s/clashMeta/*; do
-                [[ -f "${publishFile}" ]] || continue
-                sed -i '1i\proxies:' "${publishFile}" || return 1
-                if [[ -s "${subscribePublishPath}/.remote/clashMeta" ]]; then
-                    cat "${subscribePublishPath}/.remote/clashMeta" >>"${publishFile}" || return 1
-                fi
-                cat >>"${publishFile}" <<'EOF'
+    showAccounts >/dev/null || return 1
+    subMd5=$(subscriptionHash) || return 1
+    vlessFile="${subscribePublishPath}/default/${subMd5}"
+    clashFile="${subscribePublishPath}/http/s/clashMeta/${subMd5}"
+    if [[ -f "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl" && -n $(cat "/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl") ]]; then
+        read -r -p "读取到其他订阅，是否更新？[y/n]" updateOtherSubscribeStatus
+        if [[ "${updateOtherSubscribeStatus}" == "y" ]]; then
+            updateRemoteSubscribe "${subscribePublishPath}" || return 1
+        fi
+    fi
+    cat /etc/v2ray-agent/subscribe_local/default/* >"${vlessFile}" || return 1
+    if [[ -s "${subscribePublishPath}/.remote/default" ]]; then
+        cat "${subscribePublishPath}/.remote/default" >>"${vlessFile}" || return 1
+    fi
+    base64 -w 0 "${vlessFile}" >"${vlessFile}.b64" || return 1
+    mv -f "${vlessFile}.b64" "${vlessFile}" || return 1
+    cat /etc/v2ray-agent/subscribe_local/clashMeta/* >"${clashFile}" || return 1
+    sed -i '1i\proxies:' "${clashFile}" || return 1
+    if [[ -s "${subscribePublishPath}/.remote/clashMeta" ]]; then
+        cat "${subscribePublishPath}/.remote/clashMeta" >>"${clashFile}" || return 1
+    fi
+    cat >>"${clashFile}" <<'EOF'
 mode: rule
 rule-providers:
   ai-all:
@@ -1846,21 +1811,16 @@ rules:
   - GEOIP,CN,DIRECT,no-resolve
   - MATCH,非国内
 EOF
-            done
-        fi
-        rm -rf "${subscribePublishPath}/.remote" || return 1
-        chmod 755 "${subscribePublishPath}" || return 1
-        chmod 700 "${subscribePublishPath}/default" \
-            /etc/v2ray-agent/subscribe_local /etc/v2ray-agent/subscribe_local/default /etc/v2ray-agent/subscribe_local/clashMeta || return 1
-        if [[ -d "${publishedDir}" ]]; then
-            mv -f "${publishedDir}" "${publishBackup}" || return 1
-        fi
-        mv -f "${subscribePublishPath}" "${publishedDir}" || return 1
-        installSubscriptionHTTPService || echoContent red " ---> HTTPS订阅服务安装失败，订阅文件已生成"
-        handleSubscriptionHTTPS restart || echoContent red " ---> HTTPS订阅服务未启动，请检查8443端口"
-    else
-        echoContent red " ---> 当前未安装可生成订阅的 Xray 服务"
+    rm -rf "${subscribePublishPath}/.remote" || return 1
+    chmod 755 "${subscribePublishPath}" || return 1
+    chmod 700 "${subscribePublishPath}/default" \
+        /etc/v2ray-agent/subscribe_local /etc/v2ray-agent/subscribe_local/default /etc/v2ray-agent/subscribe_local/clashMeta || return 1
+    if [[ -d "${publishedDir}" ]]; then
+        mv -f "${publishedDir}" "${publishBackup}" || return 1
     fi
+    mv -f "${subscribePublishPath}" "${publishedDir}" || return 1
+    installSubscriptionHTTPService || echoContent red " ---> HTTPS订阅服务安装失败，订阅文件已生成"
+    handleSubscriptionHTTPS restart || echoContent red " ---> HTTPS订阅服务未启动，请检查8443端口"
 )
 
 # 更新远程订阅
