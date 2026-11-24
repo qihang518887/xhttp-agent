@@ -1847,8 +1847,8 @@ dns:
       - 223.5.5.5
       - 119.29.29.29
   proxy-server-nameserver:
-    - https://cloudflare-dns.com/dns-query
-    - https://dns.google/dns-query
+    - 223.5.5.5
+    - 119.29.29.29
 sniffer:
   enable: true
   force-dns-mapping: true
