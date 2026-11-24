@@ -356,9 +356,6 @@ readLastInstallationConfig() {
         read -r -p "读取到上次安装的配置，是否使用 ？[y/n]:" lastInstallationConfigStatus
         if [[ "${lastInstallationConfigStatus}" == "y" ]]; then
             lastInstallationConfig=true
-            [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
-            [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
-            [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
             local previousH3Up
             previousH3Up=$(jq -r '.inbounds[] | select(.streamSettings.tlsSettings.alpn[0] == "h3") | .streamSettings.finalmask.quicParams.brutalUp // empty' "${inboundConfig}")
             if [[ -n "${previousH3Up}" ]]; then
@@ -1619,29 +1616,46 @@ reloadCore() {
 setupXHTTPSubscriptionAddresses() {
     local addressInput
     echoContent skyBlue "\n进度 9/${totalProgress} : 本机标识"
-    if [[ -z "${lastInstallationConfig}" || -z "${nodeTag}" ]]; then
-        read -r -p "请输入本机标识（节点名前缀）[回车使用 ${nodeTag:-${domain}}]:" addressInput
-        nodeTag=${addressInput:-${nodeTag:-${domain}}}
+    [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
+    if [[ -n "${nodeTag}" && -z "${lastInstallationConfig}" ]]; then
+        read -r -p "读取到上次安装记录，是否使用上次安装时的本机标识？[y/n]:" historyNodeTagStatus
+        echo
+        [[ "${historyNodeTagStatus}" == "y" ]] || nodeTag=
     fi
-    printf '%s\n' "${nodeTag:-${domain}}" >/etc/v2ray-agent/nodeTag || return 1
+    if [[ -z "${nodeTag}" ]]; then
+        read -r -p "请输入本机标识（节点名前缀）[回车使用 ${domain}]:" addressInput
+        nodeTag=${addressInput:-${domain}}
+    fi
+    printf '%s\n' "${nodeTag}" >/etc/v2ray-agent/nodeTag || return 1
     echoContent green "\n ---> 本机标识:${nodeTag}"
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
         echoContent skyBlue "\n进度 10/${totalProgress} : H3直连地址"
-        if [[ -z "${lastInstallationConfig}" || -z "${xhttpDirectAddress}" ]]; then
-            read -r -p "请输入H3直连IP/域名[回车使用 ${xhttpDirectAddress:-公网IP}]:" addressInput
-            xhttpDirectAddress=${addressInput:-${xhttpDirectAddress}}
+        [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
+        if [[ -n "${xhttpDirectAddress}" && -z "${lastInstallationConfig}" ]]; then
+            read -r -p "读取到上次安装记录，是否使用上次安装时的H3直连IP/域名？[y/n]:" historyDirectAddressStatus
+            echo
+            [[ "${historyDirectAddressStatus}" == "y" ]] || xhttpDirectAddress=
         fi
-        [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
+        if [[ -z "${xhttpDirectAddress}" ]]; then
+            read -r -p "请输入H3直连IP/域名[回车使用 公网IP]:" addressInput
+            xhttpDirectAddress=${addressInput:-$(getPublicIP)}
+        fi
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
         echoContent green "\n ---> 直连地址:${xhttpDirectAddress}"
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
         echoContent skyBlue "\n进度 11/${totalProgress} : CDN优选CNAME"
-        if [[ -z "${lastInstallationConfig}" || -z "${xhttpPreferredCNAME}" ]]; then
-            read -r -p "请输入优选CNAME[回车使用 ${xhttpPreferredCNAME:-证书域名 ${domain}}]:" addressInput
-            xhttpPreferredCNAME=${addressInput:-${xhttpPreferredCNAME:-${domain}}}
+        [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
+        if [[ -n "${xhttpPreferredCNAME}" && -z "${lastInstallationConfig}" ]]; then
+            read -r -p "读取到上次安装记录，是否使用上次安装时的优选CNAME？[y/n]:" historyPreferredCNAMEStatus
+            echo
+            [[ "${historyPreferredCNAMEStatus}" == "y" ]] || xhttpPreferredCNAME=
         fi
-        printf '%s\n' "${xhttpPreferredCNAME:-${domain}}" >/etc/v2ray-agent/cdn || return 1
+        if [[ -z "${xhttpPreferredCNAME}" ]]; then
+            read -r -p "请输入优选CNAME[回车使用 证书域名 ${domain}]:" addressInput
+            xhttpPreferredCNAME=${addressInput:-${domain}}
+        fi
+        printf '%s\n' "${xhttpPreferredCNAME}" >/etc/v2ray-agent/cdn || return 1
         echoContent green "\n ---> 优选CNAME:${xhttpPreferredCNAME}"
     fi
 }
