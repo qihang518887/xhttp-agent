@@ -1622,10 +1622,6 @@ defaultBase64Code() {
     xhttpTLSURI=$(buildVLESSXHTTPTLSURI "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${currentXHTTPMode:-auto}" "${email}" "${alpn}") || return 1
     echoContent yellow " ---> 通用格式(VLESS+XHTTP+TLS)"
     echoContent green "    ${xhttpTLSURI}"
-    echoContent yellow " ---> 格式化明文(VLESS+XHTTP+TLS)"
-    echoContent green "协议类型:VLESS，地址:${add}，伪装域名/SNI:${currentHost}，端口:${port}，用户ID:${id}，安全:tls，传输方式:xhttp，路径:${path}，模式:${currentXHTTPMode:-auto}，账户名:${email}\n"
-    echoContent yellow " ---> 二维码 VLESS(VLESS+XHTTP+TLS)"
-    echoContent green "    https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless%3A%2F%2F${id}%40${add}%3A${port}%3Fencryption%3Dnone%26security%3Dtls%26type%3Dxhttp%26sni%3D${currentHost}%26host%3D${currentHost}%26fp%3Dchrome%26alpn%3D${alpn}%26path%3D%252F${path#/}%26mode%3D${currentXHTTPMode:-auto}%23${email}"
     printf '%s\n' "${xhttpTLSURI}" >>"${outputRoot}/default/${user}" || return 1
     buildMihomoXHTTPTLSNode "${add}" "${port}" "${id}" "${currentHost}" "${path}" "${currentXHTTPMode:-auto}" "${email}" "${alpn}" >>"${outputRoot}/clashMeta/${user}" || return 1
 }
