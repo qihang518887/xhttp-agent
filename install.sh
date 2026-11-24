@@ -1766,10 +1766,10 @@ addSubscribeMenu() {
 }
 # 添加其他机器订阅
 addOtherSubscribe() {
-    echoContent skyBlue "示例：vps2 https://1.2.3.4:8443/s/clashMeta/abc123\n"
-    read -r -p "请输入 [别名] [空格] [订阅地址]:" serverAlias remoteUrl
+    echoContent skyBlue "示例：https://1.2.3.4:8443/s/clashMeta/abc123\n"
+    read -r -p "请输入远端订阅地址:" remoteUrl
     if [[ -z "${remoteUrl}" ]]; then
-        echoContent red " ---> 需要别名和地址两项"
+        echoContent red " ---> 不可为空"
         addOtherSubscribe
     else
         mkdir -p /etc/v2ray-agent/subscribe_remote
@@ -1777,7 +1777,7 @@ addOtherSubscribe() {
             echoContent red " ---> 此订阅已添加"
             exit 0
         fi
-        echo "${serverAlias} ${remoteUrl}" >>/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl
+        echo "${remoteUrl}" >>/etc/v2ray-agent/subscribe_remote/remoteSubscribeUrl
         subscribe
     fi
 }
@@ -1862,18 +1862,14 @@ updateRemoteSubscribe() {
     local publishPath=$1
     local remoteCache="${publishPath}/.remote"
     mkdir -p "${remoteCache}" || return 1
-    while read -r serverAlias remoteUrl; do
+    while read -r remoteUrl; do
         local remoteContent clashMetaProxies default
         remoteContent=$(curl -s "${remoteUrl}")
 
         if [[ "${remoteUrl}" == */s/clashMeta/* ]]; then
-            clashMetaProxies=$(printf '%s\n' "${remoteContent}" | awk -v suffix="_${serverAlias}" '
+            clashMetaProxies=$(printf '%s\n' "${remoteContent}" | awk '
                 /^proxies:[[:space:]]*$/ { inProxies=1; next }
                 inProxies && /^[^[:space:]]/ { exit }
-                inProxies && /^[[:space:]]*- name:/ {
-                    if ($0 ~ /"$/) sub(/"$/, suffix "\"")
-                    else sub(/[[:space:]]*$/, suffix)
-                }
                 inProxies { print }
             ')
             if [[ -n "${clashMetaProxies}" ]]; then
@@ -1885,7 +1881,6 @@ updateRemoteSubscribe() {
         elif [[ "${remoteUrl}" == */s/default/* ]]; then
             default=$(printf '%s\n' "${remoteContent}" | base64 -d 2>/dev/null)
             if printf '%s\n' "${default}" | grep -qF "vless://"; then
-                default=$(printf '%s\n' "${default}" | sed "s/#\\([^#]*\\)$/#\\1_${serverAlias}/")
                 printf '%s\n' "${default}" >>"${remoteCache}/default" || return 1
                 echoContent green " ---> VLESS订阅 ${remoteUrl} 更新成功"
             else
