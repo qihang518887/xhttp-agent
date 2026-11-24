@@ -1746,25 +1746,27 @@ reloadCore() {
 }
 
 setupXHTTPSubscriptionAddresses() {
+    local directAddressInput directAddressPrompt
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
         if [[ -z "${xhttpDirectAddress}" && -s "/etc/v2ray-agent/xhttp-direct-address" ]]; then
             xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
         fi
-        if [[ -z "${xhttpDirectAddress}" ]]; then
-            if [[ ${selectCustomInstallType} == *,2,* ]]; then
-                while [[ -z "${xhttpDirectAddress}" ]]; do
-                    read -r -p "请输入H3直连IP/域名（必填）:" xhttpDirectAddress
-                done
-            else
-                read -r -p "请输入H3直连IP/域名[回车使用公网IP]:" xhttpDirectAddress
-                [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
-            fi
+        if [[ -n "${xhttpDirectAddress}" ]]; then
+            directAddressPrompt="请输入H3直连IP/域名[回车使用上次设置 ${xhttpDirectAddress}]:"
+        else
+            directAddressPrompt="请输入H3直连IP/域名[回车使用公网IP]:"
         fi
+        read -r -p "${directAddressPrompt}" directAddressInput
+        xhttpDirectAddress=${directAddressInput:-${xhttpDirectAddress}}
+        [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
         printf '%s\n' "${xhttpDirectAddress}" >/etc/v2ray-agent/xhttp-direct-address || return 1
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
-        [[ -n "${xhttpPreferredCNAME}" ]] || read -r -p "请输入优选CNAME[回车使用证书域名 ${domain}]:" xhttpPreferredCNAME
-        xhttpPreferredCNAME=${xhttpPreferredCNAME:-${domain}}
+        if [[ -z "${xhttpPreferredCNAME}" && -s "/etc/v2ray-agent/cdn" ]]; then
+            xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
+        fi
+        read -r -p "请输入优选CNAME[回车使用 ${xhttpPreferredCNAME:-证书域名 ${domain}}]:" directAddressInput
+        xhttpPreferredCNAME=${directAddressInput:-${xhttpPreferredCNAME:-${domain}}}
         printf '%s\n' "${xhttpPreferredCNAME}" >/etc/v2ray-agent/cdn || return 1
     fi
 }
