@@ -1466,8 +1466,8 @@ showAccounts() {
     [[ -n "${xhttpDirectAddress}" ]] || xhttpDirectAddress=$(getPublicIP)
     echoContent skyBlue "\n================================ VLESS XHTTP TLS ================================\n"
     # 节点名用本机标识，整合多台机器时一眼看得出来自哪台
-    nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
-    nodeTag=${nodeTag:-${uuidValue%%-*}}
+    [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
+    [[ -n "${nodeTag}" ]] || nodeTag=${uuidValue%%-*}
     nodeName=${nodeTag}
     if [[ ${currentInstallProtocolType} == *,1,* ]]; then
         [[ ${currentInstallProtocolType} == *,2,* ]] && nodeName="${nodeTag}_h3"
@@ -1614,13 +1614,16 @@ reloadCore() {
 
 # 本机标识与节点地址
 setupXHTTPSubscriptionAddresses() {
-    local addressInput
+    local addressInput currentNodeTag currentDirectAddress currentPreferredCNAME
     echoContent skyBlue "\n进度 9/${totalProgress} : 本机标识"
-    [[ -s "/etc/v2ray-agent/nodeTag" ]] && nodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
-    if [[ -n "${nodeTag}" && -z "${lastInstallationConfig}" ]]; then
+    nodeTag=
+    [[ -s "/etc/v2ray-agent/nodeTag" ]] && currentNodeTag=$(head -n 1 "/etc/v2ray-agent/nodeTag" | tr -d '\r\n')
+    if [[ -n "${currentNodeTag}" && -z "${lastInstallationConfig}" ]]; then
         read -r -p "读取到上次安装记录，是否使用上次安装时的本机标识？[y/n]:" historyNodeTagStatus
         echo
-        [[ "${historyNodeTagStatus}" == "y" ]] || nodeTag=
+        [[ "${historyNodeTagStatus}" == "y" ]] && nodeTag=${currentNodeTag}
+    elif [[ -n "${currentNodeTag}" && -n "${lastInstallationConfig}" ]]; then
+        nodeTag=${currentNodeTag}
     fi
     if [[ -z "${nodeTag}" ]]; then
         read -r -p "请输入本机标识（节点名前缀）[回车使用 ${domain}]:" addressInput
@@ -1630,11 +1633,14 @@ setupXHTTPSubscriptionAddresses() {
     echoContent green "\n ---> 本机标识:${nodeTag}"
     if [[ ${selectCustomInstallType} == *,1,* ]]; then
         echoContent skyBlue "\n进度 10/${totalProgress} : H3直连地址"
-        [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && xhttpDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
-        if [[ -n "${xhttpDirectAddress}" && -z "${lastInstallationConfig}" ]]; then
+        xhttpDirectAddress=
+        [[ -s "/etc/v2ray-agent/xhttp-direct-address" ]] && currentDirectAddress=$(head -n 1 "/etc/v2ray-agent/xhttp-direct-address" | tr -d '\r\n')
+        if [[ -n "${currentDirectAddress}" && -z "${lastInstallationConfig}" ]]; then
             read -r -p "读取到上次安装记录，是否使用上次安装时的H3直连IP/域名？[y/n]:" historyDirectAddressStatus
             echo
-            [[ "${historyDirectAddressStatus}" == "y" ]] || xhttpDirectAddress=
+            [[ "${historyDirectAddressStatus}" == "y" ]] && xhttpDirectAddress=${currentDirectAddress}
+        elif [[ -n "${currentDirectAddress}" && -n "${lastInstallationConfig}" ]]; then
+            xhttpDirectAddress=${currentDirectAddress}
         fi
         if [[ -z "${xhttpDirectAddress}" ]]; then
             read -r -p "请输入H3直连IP/域名[回车使用 公网IP]:" addressInput
@@ -1645,11 +1651,14 @@ setupXHTTPSubscriptionAddresses() {
     fi
     if [[ ${selectCustomInstallType} == *,2,* ]]; then
         echoContent skyBlue "\n进度 11/${totalProgress} : CDN优选CNAME"
-        [[ -s "/etc/v2ray-agent/cdn" ]] && xhttpPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
-        if [[ -n "${xhttpPreferredCNAME}" && -z "${lastInstallationConfig}" ]]; then
+        xhttpPreferredCNAME=
+        [[ -s "/etc/v2ray-agent/cdn" ]] && currentPreferredCNAME=$(head -n 1 "/etc/v2ray-agent/cdn" | tr -d '\r\n')
+        if [[ -n "${currentPreferredCNAME}" && -z "${lastInstallationConfig}" ]]; then
             read -r -p "读取到上次安装记录，是否使用上次安装时的优选CNAME？[y/n]:" historyPreferredCNAMEStatus
             echo
-            [[ "${historyPreferredCNAMEStatus}" == "y" ]] || xhttpPreferredCNAME=
+            [[ "${historyPreferredCNAMEStatus}" == "y" ]] && xhttpPreferredCNAME=${currentPreferredCNAME}
+        elif [[ -n "${currentPreferredCNAME}" && -n "${lastInstallationConfig}" ]]; then
+            xhttpPreferredCNAME=${currentPreferredCNAME}
         fi
         if [[ -z "${xhttpPreferredCNAME}" ]]; then
             read -r -p "请输入优选CNAME[回车使用 证书域名 ${domain}]:" addressInput
@@ -1853,9 +1862,8 @@ updateRemoteSubscribe() {
     local publishPath=$1
     local remoteCache="${publishPath}/.remote"
     mkdir -p "${remoteCache}" || return 1
-    while IFS= read -r line; do
-        local serverAlias remoteUrl remoteContent clashMetaProxies default
-        read -r serverAlias remoteUrl <<<"${line}"
+    while read -r serverAlias remoteUrl; do
+        local remoteContent clashMetaProxies default
         remoteContent=$(curl -s "${remoteUrl}")
 
         if [[ "${remoteUrl}" == */s/clashMeta/* ]]; then
