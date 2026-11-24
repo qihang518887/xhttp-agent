@@ -1967,22 +1967,28 @@ subscribe() (
                 uuid=$(head -1 "/etc/v2ray-agent/subscribe_local/default/${email}" | sed 's#^vless://##; s#@.*##')
                 emailMd5=$(printf '%s\n' "${uuid}" | md5sum | awk '{print $1}')
 
+                # 同一账号的多个节点文件拼进同一份订阅，头和规则在循环外补一次
                 cat "/etc/v2ray-agent/subscribe_local/default/${email}" >>"${subscribePublishPath}/default/${emailMd5}" || return 1
-                if [[ -s "${subscribePublishPath}/.remote/default" ]]; then
-                    cat "${subscribePublishPath}/.remote/default" >>"${subscribePublishPath}/default/${emailMd5}" || return 1
-                fi
-                local base64Result
-                base64Result=$(base64 -w 0 "${subscribePublishPath}/default/${emailMd5}") || return 1
-                echo "${base64Result}" >"${subscribePublishPath}/default/${emailMd5}" || return 1
-                echoContent yellow "--------------------------------------------------------------"
                 if [[ -f "/etc/v2ray-agent/subscribe_local/clashMeta/${email}" ]]; then
                     cat "/etc/v2ray-agent/subscribe_local/clashMeta/${email}" >>"${subscribePublishPath}/http/s/clashMeta/${emailMd5}" || return 1
-
-                    sed -i '1i\proxies:' "${subscribePublishPath}/http/s/clashMeta/${emailMd5}" || return 1
-                    if [[ -s "${subscribePublishPath}/.remote/clashMeta" ]]; then
-                        cat "${subscribePublishPath}/.remote/clashMeta" >>"${subscribePublishPath}/http/s/clashMeta/${emailMd5}" || return 1
-                    fi
-                    cat >>"${subscribePublishPath}/http/s/clashMeta/${emailMd5}" <<'EOF'
+                fi
+            done < <(find /etc/v2ray-agent/subscribe_local/default/ -type f)
+            local publishFile
+            for publishFile in "${subscribePublishPath}"/default/*; do
+                [[ -f "${publishFile}" ]] || continue
+                if [[ -s "${subscribePublishPath}/.remote/default" ]]; then
+                    cat "${subscribePublishPath}/.remote/default" >>"${publishFile}" || return 1
+                fi
+                base64 -w 0 "${publishFile}" >"${publishFile}.b64" || return 1
+                mv -f "${publishFile}.b64" "${publishFile}" || return 1
+            done
+            for publishFile in "${subscribePublishPath}"/http/s/clashMeta/*; do
+                [[ -f "${publishFile}" ]] || continue
+                sed -i '1i\proxies:' "${publishFile}" || return 1
+                if [[ -s "${subscribePublishPath}/.remote/clashMeta" ]]; then
+                    cat "${subscribePublishPath}/.remote/clashMeta" >>"${publishFile}" || return 1
+                fi
+                cat >>"${publishFile}" <<'EOF'
 mode: rule
 rule-providers:
   ai-all:
@@ -2004,9 +2010,7 @@ rules:
   - GEOIP,CN,DIRECT,no-resolve
   - MATCH,非国内
 EOF
-                fi
-
-            done < <(find /etc/v2ray-agent/subscribe_local/default/ -type f)
+            done
         fi
         rm -rf "${subscribePublishPath}/.remote" || return 1
         chmod 755 "${subscribePublishPath}" || return 1
