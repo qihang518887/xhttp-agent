@@ -1827,6 +1827,7 @@ subscribe() (
 mode: rule
 dns:
   enable: true
+  respect-rules: true
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   fake-ip-filter-mode: blacklist
@@ -1842,13 +1843,13 @@ dns:
   nameserver:
     - https://cloudflare-dns.com/dns-query
     - https://dns.google/dns-query
-  nameserver-policy:
-    "geosite:cn,private":
-      - 223.5.5.5
-      - 119.29.29.29
   proxy-server-nameserver:
     - 223.5.5.5
     - 119.29.29.29
+  direct-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  direct-nameserver-follow-policy: false
 sniffer:
   enable: true
   force-dns-mapping: true
